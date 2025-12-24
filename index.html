@@ -1567,25 +1567,61 @@ async function drawTrailFromTileToBox(tile, box, ov, duration=480){
   cleanup();
 }
 function showChoiceFromTile(tile, n){
-  // ✅ Ventana deshabilitada: todo directo al carrito
-  const p = pad4(n);
+  const ov=document.getElementById('ov'), box=document.getElementById('box');
+  const yes=document.getElementById('yes'), no=document.getElementById('no'), q=document.getElementById('q');
+  const keep=document.getElementById('keep');
+  if(!ov||!box||!yes||!no||!q||!keep) return;
 
-  // Si el mapa dice que está ocupada, no permitimos agregar
-  const st = ALL?.[p];
-  if(st && st !== 'libre'){
-    msg('Boleta ocupada', true);
-    return;
+  MODAL_OPEN=true;
+
+  if(!CART_ACTIVE){
+    q.textContent = "¿Quieres separar este número? " + n;
+    yes.style.display = 'inline-block';
+    no.style.display = 'inline-block';
+    keep.style.display = 'inline-block';
+    yes.textContent = 'Sí';
+    no.textContent = 'No';
+    keep.textContent = 'Seguir separando';
+  }else{
+    q.textContent = "Has seleccionado el número " + n;
+    keep.style.display = 'inline-block';
+    yes.style.display = 'inline-block';
+    no.style.display = 'none';
+    keep.textContent = 'Seguir separando';
+    yes.textContent = 'Finalizar';
   }
 
-  // Ya estaba seleccionada
-  if(CART_ITEMS.includes(p)){
-    setTileSelected(p, true);
-    msg('Ya está en el carrito: ' + p, false);
-    return;
-  }
+  ov.classList.add('show'); ov.setAttribute('aria-hidden','false');
+  box.style.opacity='0'; box.style.transform='translate(0,0) scale(1)'; box.style.willChange='transform,opacity';
 
-  addToCart(p);
-  msg('Agregado al carrito: ' + p, false);
+  requestAnimationFrame(async ()=>{
+    const tr=tile.getBoundingClientRect(), br=box.getBoundingClientRect();
+    const tx=tr.left+tr.width/2, ty=tr.top+tr.height/2, bx=br.left+br.width/2, by=br.top+br.height/2;
+    const dx=tx-bx, dy=ty-by;
+    drawTrailFromTileToBox(tile,box,ov,480).catch(()=>{});
+    ov.animate([{backgroundColor:'rgba(0,0,0,0)'},{backgroundColor:'rgba(0,0,0,0.35)'}],{duration:220,easing:'ease-out',fill:'forwards'});
+    const kf=[{transform:`translate(${dx}px,${dy}px) scale(0.26)`,opacity:0},
+              {transform:`translate(${dx*0.10}px,${dy*0.10}px) scale(1.06)`,opacity:1,offset:0.66},
+              {transform:'translate(0,0) scale(1)',opacity:1}];
+    const a=box.animate(kf,{duration:520,easing:'cubic-bezier(.2,1,.2,1)',fill:'forwards'});
+    a.onfinish=()=>{box.style.opacity='1'; box.style.transform='none'; box.style.willChange='auto';};
+  });
+
+  yes.onclick = (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    if(CART_ACTIVE){
+      addToCart(n);
+      closeBox(true);
+      finalizeCart();
+    }else{
+      closeBox(true);
+      openWA(n);
+    }
+  };
+  no.onclick = (e)=>{ e.preventDefault(); e.stopPropagation(); closeBox(false); };
+  keep.onclick = (e)=>{ e.preventDefault(); e.stopPropagation(); addToCart(n); closeBox(true); };
+  ov.onclick = ()=> closeBox(false);
+  box.onclick=(e)=> e.stopPropagation();
 }
 function onTileTap(el, num, pt){
   if(!el || el.dataset.busy==='1') return;
